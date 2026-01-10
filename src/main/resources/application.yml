@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: jdbc:sqlite:secure_api.db
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+app:
+  security:
+    bcrypt-strength: 10
+    jwt:
+      secret-key: ${JWT_SECRET:3x#K8pL$9qR2sV5yB7wE0zC4fT6hN1jM@}
+      expiration-ms: 86400000
+      issuer: secure-api
+
+logging:
+  level:
+    org.example: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
