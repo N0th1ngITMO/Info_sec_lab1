@@ -1,0 +1,114 @@
+name: CI/CD Pipeline with Security Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+    
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
+    
+    - name: Cache Gradle dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+          .gradle
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+    
+    - name: Validate Gradle wrapper
+      run: ./gradlew --version
+    
+    - name: Build with Gradle
+      run: ./gradlew clean compileJava
+    
+    - name: Run tests
+      run: ./gradlew test
+    
+    - name: Run SpotBugs (SAST)
+      run: ./gradlew spotbugsMain
+      continue-on-error: true
+    
+    - name: Generate SpotBugs report
+      run: ./gradlew spotbugsMain
+    
+    - name: Upload SpotBugs reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: spotbugs-reports
+        path: |
+          build/reports/spotbugs/
+          build/reports/spotbugsMain.xml
+          build/reports/spotbugsMain.html
+    
+    - name: Run OWASP Dependency Check (SCA)
+      run: ./gradlew dependencyCheckAnalyze
+      continue-on-error: true
+    
+    - name: Generate Dependency Check report
+      run: ./gradlew dependencyCheckAggregate
+    
+    - name: Upload Dependency Check reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: dependency-check-reports
+        path: |
+          build/reports/dependency-check/
+          build/reports/dependency-check-aggregate.html
+    
+    - name: Run OWASP Dependency Check with fail on CVSS >= 8
+      run: ./gradlew dependencyCheckAnalyze -DfailBuildOnCVSS=8
+      continue-on-error: true
+    
+    - name: Build JAR
+      run: ./gradlew bootJar
+    
+    - name: Upload JAR artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: application-jar
+        path: build/libs/*.jar
+    
+    - name: Security Check Summary
+      if: always()
+      run: |
+        echo "=== Security Scan Results Summary ==="
+        echo "SpotBugs reports: build/reports/spotbugs/"
+        echo "Dependency Check reports: build/reports/dependency-check/"
+        echo "Build artifacts: build/libs/"
+        
+        if [ -f build/reports/spotbugs/spotbugsMain.xml ]; then
+          echo "SpotBugs report generated"
+        else
+          echo "SpotBugs report not found"
+        fi
+        
+        if [ -f build/reports/dependency-check/dependency-check-report.html ]; then
+          echo "Dependency Check report generated"
+        else
+          echo "Dependency Check report not found"
+        fi
