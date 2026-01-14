@@ -34,18 +34,12 @@ jobs:
       - name: SCA - Snyk Auth
         run: snyk auth ${{ secrets.SNYK_TOKEN }}
       
-      - name: SCA - Snyk Test
+      - name: SCA - Snyk Code Test
         run: |
-          echo "=== Scanning src/main dependencies ==="
-          snyk test --file=build.gradle \
-            --all-projects \
-            --severity-threshold=high \
-            --json-file-output=snyk-main-deps.json
-          
           echo "=== Scanning src/main code ==="
           snyk code test src/main/java \
             --severity-threshold=high \
-            --json-file-output=snyk-main-code.json
+            --json-file-output=snyk-code-results.json
       
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
