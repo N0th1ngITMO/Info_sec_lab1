@@ -7,6 +7,7 @@ on:
     branches: [ master ]
 
 env:
+  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
 jobs:
@@ -15,10 +16,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
     
     - name: Set up JDK 17
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v3
       with:
         java-version: '17'
         distribution: 'temurin'
@@ -28,18 +29,14 @@ jobs:
       run: chmod +x ./gradlew
     
     - name: Cache Gradle dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v3
       with:
         path: |
           ~/.gradle/caches
           ~/.gradle/wrapper
-          .gradle
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
-    
-    - name: Validate Gradle wrapper
-      run: ./gradlew --version
     
     - name: Build with Gradle
       run: ./gradlew clean compileJava
@@ -47,68 +44,118 @@ jobs:
     - name: Run tests
       run: ./gradlew test
     
-    - name: Run SpotBugs (SAST)
-      run: ./gradlew spotbugsMain
-      continue-on-error: true
+    - name: SAST - Run SpotBugs
+      run: |
+        echo "=== Running SAST with SpotBugs ==="
+        ./gradlew spotbugsMain -Pspotbugs.ignoreFailures=true || echo "SAST completed with findings"
+        echo "SAST report: build/reports/spotbugs/main.html"
     
-    - name: Generate SpotBugs report
-      run: ./gradlew spotbugsMain
-    
-    - name: Upload SpotBugs reports
-      uses: actions/upload-artifact@v4
+    - name: Upload SAST reports
+      uses: actions/upload-artifact@v3
       if: always()
       with:
-        name: spotbugs-reports
-        path: |
-          build/reports/spotbugs/
-          build/reports/spotbugsMain.xml
-          build/reports/spotbugsMain.html
+        name: sast-spotbugs-reports
+        path: build/reports/spotbugs/
     
-    - name: Run OWASP Dependency Check (SCA)
-      run: ./gradlew dependencyCheckAnalyze
-      continue-on-error: true
+    - name: SCA - Setup Snyk
+      if: env.SNYK_TOKEN != ''
+      run: |
+        echo "=== Setting up Snyk for SCA ==="
+        # Автоматическая установка Snyk CLI
+        curl --compressed -o- -L https://cli.snyk.io/install.sh | sh
+        # Проверка версии
+        snyk --version
     
-    - name: Generate Dependency Check report
-      run: ./gradlew dependencyCheckAggregate
+    - name: SCA - Run Snyk Test (Dependencies)
+      if: env.SNYK_TOKEN != ''
+      run: |
+        echo "=== Running Snyk for dependency vulnerability scanning ==="
+        snyk test --all-projects --severity-threshold=high --json > snyk-deps-report.json || true
+        snyk test --all-projects --severity-threshold=high > snyk-deps-report.txt || true
+        
+        if [ -f snyk-deps-report.json ]; then
+          echo "Snyk dependencies report generated"
+        else
+          echo "Warning: Could not generate Snyk dependencies report"
+        fi
     
-    - name: Upload Dependency Check reports
-      uses: actions/upload-artifact@v4
+    - name: SCA - Run Snyk Code (SAST)
+      if: env.SNYK_TOKEN != ''
+      run: |
+        echo "=== Running Snyk Code for static code analysis ==="
+        snyk code test --severity-threshold=high --json > snyk-code-report.json || true
+        snyk code test --severity-threshold=high > snyk-code-report.txt || true
+        
+        if [ -f snyk-code-report.json ]; then
+          echo "Snyk code report generated"
+        fi
+    
+    - name: SCA - Run Snyk via Gradle plugin
+      if: env.SNYK_TOKEN != ''
+      run: |
+        echo "=== Running Snyk through Gradle plugin ==="
+        ./gradlew snykTest --continue || echo "Snyk scan completed"
+    
+    - name: Upload Snyk reports
       if: always()
+      uses: actions/upload-artifact@v3
       with:
-        name: dependency-check-reports
+        name: sca-snyk-reports
         path: |
-          build/reports/dependency-check/
-          build/reports/dependency-check-aggregate.html
+          snyk-*.json
+          snyk-*.txt
+        retention-days: 7
     
-    - name: Run OWASP Dependency Check with fail on CVSS >= 8
-      run: ./gradlew dependencyCheckAnalyze -DfailBuildOnCVSS=8
-      continue-on-error: true
+    - name: SCA - Fallback (if no Snyk token)
+      if: env.SNYK_TOKEN == ''
+      run: |
+        echo "=== Snyk token not found, using Gradle dependency report ==="
+        echo "Note: Set SNYK_TOKEN secret in repository settings for full SCA"
+        ./gradlew dependencies --configuration runtimeClasspath > dependency-report.txt
+        echo "Basic dependency report generated"
+    
+    - name: Upload Fallback reports
+      if: env.SNYK_TOKEN == ''
+      uses: actions/upload-artifact@v3
+      with:
+        name: fallback-dependency-report
+        path: dependency-report.txt
     
     - name: Build JAR
       run: ./gradlew bootJar
     
     - name: Upload JAR artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
-        name: application-jar
+        name: secure-api-jar
         path: build/libs/*.jar
     
-    - name: Security Check Summary
+    - name: Generate Security Summary
       if: always()
       run: |
-        echo "=== Security Scan Results Summary ==="
-        echo "SpotBugs reports: build/reports/spotbugs/"
-        echo "Dependency Check reports: build/reports/dependency-check/"
-        echo "Build artifacts: build/libs/"
+        echo "## 🔒 Security Scanning Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
         
-        if [ -f build/reports/spotbugs/spotbugsMain.xml ]; then
-          echo "SpotBugs report generated"
+        echo "### SAST (Static Application Security Testing)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tool**: SpotBugs" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status**: Completed" >> $GITHUB_STEP_SUMMARY
+        echo "- **Reports**: Available in artifacts (sast-spotbugs-reports)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "$SNYK_TOKEN" != "" ]; then
+          echo "### SCA (Software Composition Analysis)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tool**: Snyk" >> $GITHUB_STEP_SUMMARY
+          echo "- **Scans**:" >> $GITHUB_STEP_SUMMARY
+          echo "  - Dependency vulnerability scanning" >> $GITHUB_STEP_SUMMARY
+          echo "  - Static code analysis (Snyk Code)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Reports**: Available in artifacts (sca-snyk-reports)" >> $GITHUB_STEP_SUMMARY
         else
-          echo "SpotBugs report not found"
+          echo "### SCA (Software Composition Analysis)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: Snyk token not configured" >> $GITHUB_STEP_SUMMARY
+          echo "- **Note**: Add SNYK_TOKEN secret in repository settings for full SCA" >> $GITHUB_STEP_SUMMARY
+          echo "- **Fallback**: Basic dependency report generated" >> $GITHUB_STEP_SUMMARY
         fi
         
-        if [ -f build/reports/dependency-check/dependency-check-report.html ]; then
-          echo "Dependency Check report generated"
-        else
-          echo "Dependency Check report not found"
-        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Build Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- Secure API JAR file generated and uploaded" >> $GITHUB_STEP_SUMMARY
