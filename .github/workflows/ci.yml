@@ -16,10 +16,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Set up JDK 17
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
@@ -29,7 +29,7 @@ jobs:
       run: chmod +x ./gradlew
     
     - name: Cache Gradle dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
@@ -51,7 +51,7 @@ jobs:
         echo "SAST report: build/reports/spotbugs/main.html"
     
     - name: Upload SAST reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: sast-spotbugs-reports
@@ -98,7 +98,7 @@ jobs:
     
     - name: Upload Snyk reports
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: sca-snyk-reports
         path: |
@@ -116,7 +116,7 @@ jobs:
     
     - name: Upload Fallback reports
       if: env.SNYK_TOKEN == ''
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: fallback-dependency-report
         path: dependency-report.txt
@@ -125,7 +125,7 @@ jobs:
       run: ./gradlew bootJar
     
     - name: Upload JAR artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: secure-api-jar
         path: build/libs/*.jar
@@ -133,7 +133,7 @@ jobs:
     - name: Generate Security Summary
       if: always()
       run: |
-        echo "## 🔒 Security Scanning Summary" >> $GITHUB_STEP_SUMMARY
+        echo "## Security Scanning Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         echo "### SAST (Static Application Security Testing)" >> $GITHUB_STEP_SUMMARY
