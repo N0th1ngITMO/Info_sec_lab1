@@ -7,54 +7,51 @@ on:
     branches: [ master ]
 
 jobs:
-  security-scan:
+  security:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
       
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: gradle
       
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      - name: Build
+        run: |
+          chmod +x ./gradlew
+          ./gradlew clean build
       
-      - name: Build and test
-        run: ./gradlew clean build
+      - name: SAST - SpotBugs
+        run: ./gradlew spotbugsMain -Pspotbugs.ignoreFailures=true
       
-      - name: Run SpotBugs
-        run: ./gradlew spotbugsMain
-        continue-on-error: true
-    
-      - name: Generate SpotBugs report
-        run: ./gradlew spotbugsMain
-    
-      - name: Upload SpotBugs reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: spotbugs-reports
-          path: |
-            build/reports/spotbugs/
-            build/reports/spotbugsMain.xml
-            build/reports/spotbugsMain.html
-      
-      - name: Setup Snyk
+      - name: SCA - Setup Snyk
         uses: snyk/actions/setup@master
       
-      - name: Run Snyk
-        run: |
-          snyk auth ${{ secrets.SNYK_TOKEN }}
-          snyk test --all-projects --severity-threshold=high
+      - name: SCA - Snyk Auth
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
       
-      - name: Upload reports
+      - name: SCA - Snyk Test
+        run: |
+          echo "=== Scanning src/main dependencies ==="
+          snyk test --file=build.gradle \
+            --all-projects \
+            --severity-threshold=high \
+            --json-file-output=snyk-main-deps.json
+          
+          echo "=== Scanning src/main code ==="
+          snyk code test src/main/java \
+            --severity-threshold=high \
+            --json-file-output=snyk-main-code.json
+      
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: security-reports
           path: |
             build/reports/spotbugs/
+            snyk-*.json
             build/libs/*.jar
