@@ -27,7 +27,21 @@ jobs:
         run: ./gradlew clean build
       
       - name: Run SpotBugs (SAST)
-        run: ./gradlew spotbugsMain -Pspotbugs.ignoreFailures=true
+        run: ./gradlew spotbugsMain
+        continue-on-error: true
+    
+      - name: Generate SpotBugs report
+        run: ./gradlew spotbugsMain
+    
+      - name: Upload SpotBugs reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spotbugs-reports
+          path: |
+            build/reports/spotbugs/
+            build/reports/spotbugsMain.xml
+            build/reports/spotbugsMain.html
       
       - name: Setup Snyk
         uses: snyk/actions/setup@master
