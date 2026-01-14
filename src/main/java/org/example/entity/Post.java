@@ -3,6 +3,8 @@ package org.example.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.example.config.JwtProperties;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -68,7 +70,9 @@ public class Post {
         copy.setCreatedAt(author.getCreatedAt());
         return copy;
     }
-    public void setAuthor(User author) { this.author = author; }
+    public void setAuthor(User author) {
+        this.author = createCopy(author);
+    }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
@@ -78,4 +82,18 @@ public class Post {
 
     public boolean isPublished() { return published; }
     public void setPublished(boolean published) { this.published = published; }
+
+    private User createCopy(User original) {
+        if (original == null) {
+            return new User();
+        }
+
+        User copy = new User();
+        copy.setId(author.getId());
+        copy.setUsername(author.getUsername());
+        copy.setEmail(author.getEmail());
+        copy.setEnabled(author.isEnabled());
+        copy.setCreatedAt(author.getCreatedAt());
+        return copy;
+    }
 }
