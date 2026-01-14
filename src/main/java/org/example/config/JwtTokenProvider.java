@@ -23,8 +23,20 @@ public class JwtTokenProvider {
 
     @Autowired
     public JwtTokenProvider(JwtProperties jwtProperties) {
-        this.jwtProperties = jwtProperties;
+        this.jwtProperties = createCopy(jwtProperties);
         this.secretKey = Keys.hmacShaKeyFor(jwtProperties.getSecretKey().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private JwtProperties createCopy(JwtProperties original) {
+        if (original == null) {
+            return new JwtProperties();
+        }
+
+        JwtProperties copy = new JwtProperties();
+        copy.setSecretKey(original.getSecretKey());
+        copy.setExpirationMs(original.getExpirationMs());
+        copy.setIssuer(original.getIssuer());
+        return copy;
     }
 
     public String generateToken(Authentication authentication) {

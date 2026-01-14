@@ -56,7 +56,18 @@ public class Post {
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
 
-    public String getAuthorUsername() { return author.getUsername(); }
+    public User getAuthor() {
+        if (author == null) {
+            return null;
+        }
+        User copy = new User();
+        copy.setId(author.getId());
+        copy.setUsername(author.getUsername());
+        copy.setEmail(author.getEmail());
+        copy.setEnabled(author.isEnabled());
+        copy.setCreatedAt(author.getCreatedAt());
+        return copy;
+    }
     public void setAuthor(User author) { this.author = author; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }

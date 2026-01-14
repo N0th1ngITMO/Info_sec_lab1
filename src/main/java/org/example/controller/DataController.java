@@ -46,7 +46,7 @@ public class DataController {
                     postMap.put("id", post.getId());
                     postMap.put("title", sanitizeOutput(post.getTitle()));
                     postMap.put("content", sanitizeOutput(post.getContent()));
-                    postMap.put("author", post.getAuthorUsername());
+                    postMap.put("author", post.getAuthor().getUsername());
                     postMap.put("createdAt", post.getCreatedAt());
                     postMap.put("updatedAt", post.getUpdatedAt());
                     postMap.put("published", post.isPublished());
@@ -101,7 +101,7 @@ public class DataController {
         response.put("message", "Post created successfully");
         response.put("postId", savedPost.getId());
         response.put("title", savedPost.getTitle());
-        response.put("author", savedPost.getAuthorUsername());
+        response.put("author", savedPost.getAuthor().getUsername());
         response.put("createdAt", savedPost.getCreatedAt());
         response.put("published", savedPost.isPublished());
         response.put("note", "All user input has been sanitized for XSS protection");
@@ -120,7 +120,7 @@ public class DataController {
                     postMap.put("id", post.getId());
                     postMap.put("title", sanitizeOutput(post.getTitle()));
                     postMap.put("excerpt", getExcerpt(sanitizeOutput(post.getContent()), 100));
-                    postMap.put("author", post.getAuthorUsername());
+                    postMap.put("author", post.getAuthor().getUsername());
                     postMap.put("createdAt", post.getCreatedAt());
                     return postMap;
                 })
@@ -176,7 +176,7 @@ public class DataController {
                     postMap.put("id", post.getId());
                     postMap.put("title", sanitizeOutput(post.getTitle()));
                     postMap.put("excerpt", getExcerpt(sanitizeOutput(post.getContent()), 150));
-                    postMap.put("author", post.getAuthorUsername());
+                    postMap.put("author", post.getAuthor().getUsername());
                     postMap.put("createdAt", post.getCreatedAt());
                     return postMap;
                 })
