@@ -56,7 +56,7 @@ public class Post {
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
 
-    public User getAuthor() { return author; }
+    public String getAuthorUsername() { return author.getUsername(); }
     public void setAuthor(User author) { this.author = author; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
